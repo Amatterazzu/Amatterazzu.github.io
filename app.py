@@ -9,6 +9,7 @@ import os
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'edu7701')
+app.config['APPLICATION_ROOT'] = '/amatterazzu.github.io'
 
 DATABASE_URL = os.getenv('DATABASE_URL', 'empresa_3d.db')
 
@@ -48,7 +49,7 @@ def crear_tablas():
 
 crear_tablas()
 
-@app.route('/')
+@app.route('/amatterazzu.github.io/')
 def index():
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -57,7 +58,7 @@ def index():
     conn.close()
     return render_template('index.html', productos=productos)
 
-@app.route('/add_product', methods=['POST'])
+@app.route('/amatterazzu.github.io/add_product', methods=['POST'])
 def add_product():
     nombre = request.form['nombre']
     stock = int(request.form['stock'])
@@ -78,7 +79,7 @@ def add_product():
     conn.close()
     return redirect(url_for('index'))
 
-@app.route('/registrar_compra', methods=['POST'])
+@app.route('/amatterazzu.github.io/registrar_compra', methods=['POST'])
 def registrar_compra():
     producto_id = int(request.form['producto_id'])
     cantidad = int(request.form['cantidad'])
@@ -101,6 +102,9 @@ def generar_factura(producto_id, cantidad, fecha):
     
     fecha_str = datetime.now().strftime('%Y-%m-%d_%H-%M')
     nombre_factura = f"Factura({fecha_str}).pdf"
+    ruta_factura = os.path.join('static', 'facturas', nombre_factura)
+    
+    os.makedirs(os.path.dirname(ruta_factura), exist_ok=True)
 
     c = canvas.Canvas(ruta_factura, pagesize=A4)
     c.setFont("Helvetica-Bold", 16)
@@ -133,7 +137,7 @@ def generar_factura(producto_id, cantidad, fecha):
     c.save()
     return ruta_factura
 
-@app.route('/registrar_venta', methods=['POST'])
+@app.route('/amatterazzu.github.io/registrar_venta', methods=['POST'])
 def registrar_venta():
     producto_id = int(request.form['producto_id'])
     cantidad = int(request.form['cantidad'])
@@ -160,18 +164,15 @@ def registrar_venta():
         print(f"Error: No hay suficiente stock para realizar la venta. Stock disponible: {stock_actual[0] if stock_actual else 'Producto no encontrado'}")
         return redirect(url_for('index'))
 
-
-@app.route('/download_factura/<path:filename>', methods=['GET'])
+@app.route('/amatterazzu.github.io/download_factura/<path:filename>', methods=['GET'])
 def download_factura(filename):
     try:
-        ruta_factura = os.path.abspath(filename)
+        ruta_factura = os.path.join('static', 'facturas', filename)
         return send_file(ruta_factura, as_attachment=True)
     except Exception as e:
         return "Error al descargar el archivo", 500
 
-
-
-@app.route('/eliminar_producto', methods=['POST'])
+@app.route('/amatterazzu.github.io/eliminar_producto', methods=['POST'])
 def eliminar_producto():
     producto_id = int(request.form['producto_id'])
 
@@ -182,7 +183,7 @@ def eliminar_producto():
     conn.close()
     return redirect(url_for('index'))
 
-@app.route('/mostrar_inventario')
+@app.route('/amatterazzu.github.io/mostrar_inventario')
 def mostrar_inventario():
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -191,9 +192,12 @@ def mostrar_inventario():
     conn.close()
     return render_template('inventario.html', productos=productos)
 
-@app.route('/informe')
+@app.route('/amatterazzu.github.io/informe')
 def informe():
-    c = canvas.Canvas("informe_HZ_movimientos.pdf", pagesize=A4)
+    report_path = os.path.join('static', 'reports', 'informe_HZ_movimientos.pdf')
+    os.makedirs(os.path.dirname(report_path), exist_ok=True)
+    
+    c = canvas.Canvas(report_path, pagesize=A4)
     c.setFont("Helvetica-Bold", 12)
     c.drawCentredString(300, 800, "Informe Compras y Ventas - HZ Impresiones 3D")
     c.setFont("Helvetica", 10)
@@ -231,10 +235,13 @@ def informe():
 
     conn.close()
     c.save()
-    return send_file("informe_HZ_movimientos.pdf", as_attachment=True)
+    return send_file(report_path, as_attachment=True)
 
-@app.route('/reporte_excel')
+@app.route('/amatterazzu.github.io/reporte_excel')
 def reporte_excel():
+    report_path = os.path.join('static', 'reports', 'reporte_inv.xlsx')
+    os.makedirs(os.path.dirname(report_path), exist_ok=True)
+    
     workbook = openpyxl.Workbook()
     sheet = workbook.active
     sheet.title = "Inventario"
@@ -274,8 +281,8 @@ def reporte_excel():
         length = max(len(str(cell.value)) for cell in column_cells)
         sheet.column_dimensions[column_cells[0].column_letter].width = length + 2
 
-    workbook.save("reporte_inv.xlsx")
-    return send_file("reporte_inv.xlsx", as_attachment=True)
+    workbook.save(report_path)
+    return send_file(report_path, as_attachment=True)
 
 if __name__ == '__main__':
     app.run(debug=False)
